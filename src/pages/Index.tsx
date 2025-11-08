@@ -1,70 +1,45 @@
 import { useState, useMemo } from "react";
-import { StatCard } from "@/components/StatCard";
-import { InsightCard } from "@/components/InsightCard";
-import { HealthScore } from "@/components/HealthScore";
-import { CashFlowChart } from "@/components/CashFlowChart";
-import { AccountBalance } from "@/components/AccountBalance";
-import { CreditCardUsage } from "@/components/CreditCardUsage";
-import { QuickProjection } from "@/components/QuickProjection";
-import { AlertsList } from "@/components/AlertsList";
-import { QuickActions } from "@/components/QuickActions";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { MiniSparkline } from "@/components/MiniSparkline";
+import { RecentTransactionsTable } from "@/components/RecentTransactionsTable";
+import { StockSummaryTable } from "@/components/StockSummaryTable";
 import NewTransactionModal from "@/components/NewTransactionModal";
-import { GlobalFilters, FilterState } from "@/components/GlobalFilters";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useTransactions } from "@/hooks/useFinancialData";
-import { useRecurrences } from "@/hooks/useRecurrences";
-import { parseDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/utils";
-import { 
-  Wallet,
-  TrendingUp, 
-  TrendingDown, 
-  Calendar,
-  PiggyBank,
-  CreditCard as CreditCardIcon,
-  Target,
-  Activity
-} from "lucide-react";
+import { usePrivacy } from "@/contexts/PrivacyContext";
+import { ValueDisplay } from "@/components/ValueDisplay";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { Plus, TrendingUp, TrendingDown } from "lucide-react";
 
 const Index = () => {
   const [isNewTransactionModalOpen, setIsNewTransactionModalOpen] = useState(false);
-  const [filters, setFilters] = useState<FilterState>({
-    periodo: "mesAtual"
-  });
-  
   const { accounts } = useAccounts();
   const { transactions } = useTransactions();
-  const { activeRecurrences } = useRecurrences();
+  const { isValuesCensored } = usePrivacy();
 
-  // Calculate real totals from data
+  // Calculate totals
   const totalBalance = accounts.reduce((sum, account) => {
     const balance = typeof account.saldo_inicial === 'string' ? 
       parseFloat(account.saldo_inicial) : account.saldo_inicial;
     return sum + (balance || 0);
   }, 0);
 
-  // Filter transactions based on GlobalFilters
-  const filteredTransactions = useMemo(() => {
-    if (!filters.dataInicio || !filters.dataFim) {
-      // Fallback para mês atual
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      return transactions.filter(t => t.data_transacao?.startsWith(currentMonth));
-    }
-    
-    return transactions.filter(t => {
-      const date = parseDate(t.data_transacao);
-      return date >= filters.dataInicio! && date <= filters.dataFim!;
-    });
-  }, [transactions, filters]);
+  // Filter current month transactions
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const monthTransactions = transactions.filter(t => 
+    t.data_transacao?.startsWith(currentMonth)
+  );
 
-  const monthlyIncome = filteredTransactions
+  const monthlyIncome = monthTransactions
     .filter(t => t.tipo === 'credito')
     .reduce((sum, t) => {
       const value = typeof t.valor === 'string' ? parseFloat(t.valor) : t.valor;
       return sum + (value || 0);
     }, 0);
 
-  const monthlyExpenses = filteredTransactions
+  const monthlyExpenses = monthTransactions
     .filter(t => t.tipo === 'debito')
     .reduce((sum, t) => {
       const value = typeof t.valor === 'string' ? parseFloat(t.valor) : t.valor;
@@ -97,281 +72,148 @@ const Index = () => {
     return data.reverse();
   }, [transactions, totalBalance]);
 
-  const calculateTrend = (current: number, previous: number) => {
-    if (previous === 0) return 0;
-    return ((current - previous) / previous) * 100;
-  };
-
-  // Calculate previous month for comparison
-  const previousMonth = new Date();
-  previousMonth.setMonth(previousMonth.getMonth() - 1);
-  const previousMonthStr = previousMonth.toISOString().slice(0, 7);
-  
-  const previousMonthTransactions = transactions.filter(t => 
-    t.data_transacao?.startsWith(previousMonthStr)
-  );
-  
-  const previousMonthIncome = previousMonthTransactions
-    .filter(t => t.tipo === 'credito')
-    .reduce((sum, t) => {
-      const value = typeof t.valor === 'string' ? parseFloat(t.valor) : t.valor;
-      return sum + (value || 0);
-    }, 0);
-    
-  const previousMonthExpenses = previousMonthTransactions
-    .filter(t => t.tipo === 'debito')
-    .reduce((sum, t) => {
-      const value = typeof t.valor === 'string' ? parseFloat(t.valor) : t.valor;
-      return sum + (value || 0);
-    }, 0);
-
-  const incomeTrend = calculateTrend(monthlyIncome, previousMonthIncome);
-  const expensesTrend = calculateTrend(monthlyExpenses, previousMonthExpenses);
-
-  // Calcular recorrências mensais
-  const monthlyRecurrentIncome = activeRecurrences
-    .filter(r => r.tipo === 'credito' && r.frequencia === 'mensal')
-    .reduce((sum, r) => sum + parseFloat(String(r.valor)), 0);
-
-  const monthlyRecurrentExpenses = activeRecurrences
-    .filter(r => r.tipo === 'debito' && r.frequencia === 'mensal')
-    .reduce((sum, r) => sum + parseFloat(String(r.valor)), 0);
-
-  // Calculate last 6 months data for cash flow chart
-  const cashFlowData = useMemo(() => {
-    const data = [];
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      const monthStr = date.toISOString().slice(0, 7);
-      
-      const monthTransactions = transactions.filter(t => 
-        t.data_transacao?.startsWith(monthStr)
-      );
-      
-      const receitas = monthTransactions
-        .filter(t => t.tipo === 'credito')
-        .reduce((sum, t) => {
-          const value = typeof t.valor === 'string' ? parseFloat(t.valor) : t.valor;
-          return sum + (value || 0);
-        }, 0);
-      
-      const despesas = monthTransactions
-        .filter(t => t.tipo === 'debito')
-        .reduce((sum, t) => {
-          const value = typeof t.valor === 'string' ? parseFloat(t.valor) : t.valor;
-          return sum + (value || 0);
-        }, 0);
-      
-      data.push({
-        month: date.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase(),
-        receitas,
-        despesas,
-        saldo: receitas - despesas
-      });
-    }
-    return data;
-  }, [transactions]);
-
-  // Calculate financial health score
-  const healthScore = useMemo(() => {
-    let score = 50; // Base score
-    const monthlyBalance = monthlyIncome - monthlyExpenses;
-    const savingsRate = monthlyIncome > 0 ? (monthlyBalance / monthlyIncome) * 100 : 0;
-    
-    // Positive balance adds points
-    if (monthlyBalance > 0) score += 20;
-    
-    // Good savings rate (>20%) adds points
-    if (savingsRate > 20) score += 15;
-    else if (savingsRate > 10) score += 10;
-    
-    // Low debt ratio adds points
-    if (totalBalance > 0) score += 15;
-    
-    return Math.min(Math.max(score, 0), 100);
-  }, [monthlyIncome, monthlyExpenses, totalBalance]);
-
-  const healthFactors = useMemo(() => {
-    const monthlyBalance = monthlyIncome - monthlyExpenses;
-    const savingsRate = monthlyIncome > 0 ? (monthlyBalance / monthlyIncome) * 100 : 0;
-    
-    return [
-      {
-        label: "Fluxo de Caixa",
-        status: monthlyBalance > 0 ? "good" : "critical",
-        description: monthlyBalance > 0 
-          ? `Saldo positivo de ${formatCurrency(monthlyBalance)}`
-          : `Déficit de ${formatCurrency(Math.abs(monthlyBalance))}`
-      } as const,
-      {
-        label: "Taxa de Poupança",
-        status: savingsRate > 20 ? "good" : savingsRate > 10 ? "warning" : "critical",
-        description: `${savingsRate.toFixed(1)}% da renda está sendo poupada`
-      } as const,
-      {
-        label: "Saldo Total",
-        status: totalBalance > 0 ? "good" : "critical",
-        description: totalBalance > 0
-          ? `Capital positivo de ${formatCurrency(totalBalance)}`
-          : "Capital negativo - atenção necessária"
-      } as const,
-    ];
-  }, [monthlyIncome, monthlyExpenses, totalBalance]);
+  // Pie chart data for cash flow preview
+  const pieChartData = [
+    { name: 'Receitas', value: monthlyIncome, color: 'hsl(var(--success))' },
+    { name: 'Despesas', value: monthlyExpenses, color: 'hsl(var(--destructive))' },
+  ];
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Dashboard Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-foreground mb-1">Dashboard Executivo</h1>
-        <p className="text-muted-foreground">
-          Visão estratégica das suas finanças em tempo real
-        </p>
+    <div className="min-h-screen bg-background p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-4xl font-bold text-foreground">Painel Principal</h1>
+        <Button 
+          onClick={() => setIsNewTransactionModalOpen(true)}
+          className="gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Novo Lançamento
+        </Button>
       </div>
 
-      {/* Filtros Globais */}
-      <GlobalFilters
-        filters={filters}
-        onChange={setFilters}
-        onNovo={() => setIsNewTransactionModalOpen(true)}
-      />
+      {/* Top Cards - Saldo e Receitas x Despesas */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Saldo Atual */}
+        <Card className="p-6 bg-card border-border/50">
+          <div className="space-y-4">
+            <h2 className="text-sm font-medium text-muted-foreground">Saldo Atual</h2>
+            <div className="flex items-end justify-between">
+              <div>
+                <ValueDisplay 
+                  value={formatCurrency(totalBalance)} 
+                  className="text-4xl font-bold"
+                />
+              </div>
+              <div className="h-16 w-32">
+                <MiniSparkline data={last30DaysData} color="hsl(var(--primary))" />
+              </div>
+            </div>
+          </div>
+        </Card>
 
-      {/* 1️⃣ KPIs PRINCIPAIS - Top metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Saldo Total"
-          value={formatCurrency(totalBalance)}
-          subtitle="Patrimônio líquido"
-          icon={Wallet}
-          variant="primary"
-          trend={{
-            value: calculateTrend(totalBalance, totalBalance - (monthlyIncome - monthlyExpenses)),
-            label: "vs mês anterior"
-          }}
-        />
-        
-        <StatCard
-          title="Receitas"
-          value={formatCurrency(monthlyIncome)}
-          subtitle="Mês atual"
-          icon={TrendingUp}
-          variant="success"
-          trend={{
-            value: incomeTrend,
-            label: "vs mês anterior",
-            isPositive: true
-          }}
-        />
-        
-        <StatCard
-          title="Despesas"
-          value={formatCurrency(monthlyExpenses)}
-          subtitle="Mês atual"
-          icon={TrendingDown}
-          variant="destructive"
-          trend={{
-            value: expensesTrend,
-            label: "vs mês anterior",
-            isPositive: false
-          }}
-        />
-        
-        <StatCard
-          title="Economia"
-          value={formatCurrency(monthlyIncome - monthlyExpenses)}
-          subtitle="Saldo mensal"
-          icon={PiggyBank}
-          variant={monthlyIncome - monthlyExpenses >= 0 ? "success" : "warning"}
-          trend={{
-            value: calculateTrend(
-              monthlyIncome - monthlyExpenses,
-              previousMonthIncome - previousMonthExpenses
-            ),
-            label: "vs mês anterior"
-          }}
-        />
+        {/* Receitas x Despesas */}
+        <Card className="p-6 bg-card border-border/50">
+          <h2 className="text-sm font-medium text-muted-foreground mb-4">Receitas x Despesas</h2>
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-success">
+                <TrendingUp className="w-4 h-4" />
+                <span className="text-xs font-medium">Receitas</span>
+              </div>
+              <ValueDisplay 
+                value={formatCurrency(monthlyIncome)} 
+                className="text-2xl font-bold"
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-destructive">
+                <TrendingDown className="w-4 h-4" />
+                <span className="text-xs font-medium">Despesas</span>
+              </div>
+              <ValueDisplay 
+                value={formatCurrency(monthlyExpenses)} 
+                className="text-2xl font-bold"
+              />
+            </div>
+          </div>
+        </Card>
       </div>
 
-      {/* 2️⃣ ANÁLISES E INSIGHTS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
-          <CashFlowChart data={cashFlowData} />
+      {/* Lançamentos Section */}
+      <Card className="bg-card border-border/50">
+        <div className="p-6 border-b border-border/50">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Lançamentos</h2>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setIsNewTransactionModalOpen(true)}
+            >
+              + Novo Lançamento
+            </Button>
+          </div>
         </div>
-        
-        <HealthScore
-          score={healthScore}
-          factors={healthFactors}
-        />
-      </div>
-
-      {/* 3️⃣ INSIGHTS DETALHADOS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <InsightCard
-          title="Análise Mensal"
-          insights={[
-            {
-              label: "Receita Total",
-              value: formatCurrency(monthlyIncome),
-              trend: incomeTrend,
-              icon: TrendingUp
-            },
-            {
-              label: "Despesa Total",
-              value: formatCurrency(monthlyExpenses),
-              trend: expensesTrend,
-              icon: TrendingDown
-            },
-            {
-              label: "Taxa de Economia",
-              value: monthlyIncome > 0 
-                ? `${((monthlyIncome - monthlyExpenses) / monthlyIncome * 100).toFixed(1)}%`
-                : "0%",
-              icon: Target
-            }
-          ]}
-        />
-        
-        <InsightCard
-          title="Recorrências"
-          insights={[
-            {
-              label: "Receitas Recorrentes",
-              value: formatCurrency(monthlyRecurrentIncome),
-              icon: Activity
-            },
-            {
-              label: "Despesas Recorrentes",
-              value: formatCurrency(monthlyRecurrentExpenses),
-              icon: Activity
-            },
-            {
-              label: "Balanço Recorrente",
-              value: formatCurrency(monthlyRecurrentIncome - monthlyRecurrentExpenses),
-              icon: Calendar
-            }
-          ]}
-        />
-      </div>
-
-      {/* 4️⃣ INFORMAÇÕES COMPLEMENTARES */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="xl:col-span-2 space-y-4">
-          <AccountBalance />
-          <QuickProjection />
+        <div className="p-6">
+          <RecentTransactionsTable transactions={transactions} limit={10} />
         </div>
-        
-        <div className="space-y-4">
-          <AlertsList />
-          <CreditCardUsage />
-        </div>
-      </div>
+      </Card>
 
-      <QuickActions 
-        context="dashboard" 
-        onRefresh={() => {
-          // Refresh can be implemented when needed
-        }} 
-      />
+      {/* Bottom Grid - Estoque e Previsão */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Estoque */}
+        <Card className="bg-card border-border/50">
+          <div className="p-6 border-b border-border/50">
+            <h2 className="text-xl font-semibold">Estoque</h2>
+          </div>
+          <div className="p-6">
+            <StockSummaryTable />
+          </div>
+        </Card>
+
+        {/* Previsão de Fluxo de Caixa */}
+        <Card className="bg-card border-border/50">
+          <div className="p-6 border-b border-border/50">
+            <h2 className="text-xl font-semibold">Previsão de Fluxo de Caixa</h2>
+          </div>
+          <div className="p-6">
+            <div className="h-64 flex items-center justify-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieChartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {pieChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number) => formatCurrency(value)}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Legend 
+                    verticalAlign="bottom" 
+                    height={36}
+                    formatter={(value) => (
+                      <span className="text-sm text-foreground">{value}</span>
+                    )}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </Card>
+      </div>
 
       <NewTransactionModal
         open={isNewTransactionModalOpen}
