@@ -60,6 +60,7 @@ export function useCategories() {
         return {
           id: sub.id,
           nome: sub.nome,
+          parent_id: sub.parent_id,
           parentName: parent?.nome || "Sem categoria",
           tipo: sub.tipo,
           fullName: `${parent?.nome || "Sem categoria"} → ${sub.nome}`
