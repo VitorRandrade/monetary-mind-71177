@@ -108,10 +108,8 @@ export class EstoqueSDK {
       headers: this.buildHeaders(),
     });
     
-    // Ensure we always return an array
-    const produtos = Array.isArray(result) ? result : [];
-    console.debug(`✅ Produtos:`, produtos.length, "itens");
-    return produtos;
+    console.debug(`✅ Produtos:`, result?.length || 0, "itens");
+    return result;
   }
 }
 

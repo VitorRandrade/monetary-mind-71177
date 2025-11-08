@@ -10,10 +10,10 @@ export function StockSummaryTable() {
   const { isValuesCensored } = usePrivacy();
   
   // Pegar os top 5 itens por valor total
-  const topItems = (Array.isArray(estoque) ? estoque : [])
+  const topItems = (estoque || [])
     .map(item => ({
       ...item,
-      valorTotal: (item.quantidade_disponivel || 0) * (item.preco_venda || 0)
+      valorTotal: (item.quantidade || 0) * (item.preco_unitario || 0)
     }))
     .sort((a, b) => b.valorTotal - a.valorTotal)
     .slice(0, 5);
@@ -53,7 +53,7 @@ export function StockSummaryTable() {
                 {item.nome}
               </td>
               <td className="py-3 px-4 text-right text-sm">
-                {item.quantidade_disponivel}
+                {item.quantidade}
               </td>
               <td className="py-3 px-4 text-right font-semibold">
                 <ValueDisplay value={formatCurrency(item.valorTotal)} />
