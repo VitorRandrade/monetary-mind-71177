@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, censorValue } from "@/lib/utils";
+import { usePrivacy } from "@/contexts/PrivacyContext";
 
 interface CashFlowChartProps {
   data: {
@@ -13,6 +14,8 @@ interface CashFlowChartProps {
 }
 
 export function CashFlowChart({ data, className }: CashFlowChartProps) {
+  const { isValuesCensored } = usePrivacy();
+  
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -20,7 +23,7 @@ export function CashFlowChart({ data, className }: CashFlowChartProps) {
           <p className="text-sm font-semibold mb-2">{label}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} className="text-xs" style={{ color: entry.color }}>
-              {entry.name}: {formatCurrency(entry.value)}
+              {entry.name}: {censorValue(formatCurrency(entry.value), isValuesCensored)}
             </p>
           ))}
         </div>
@@ -47,7 +50,7 @@ export function CashFlowChart({ data, className }: CashFlowChartProps) {
             <YAxis
               stroke="hsl(var(--muted-foreground))"
               fontSize={12}
-              tickFormatter={(value) => formatCurrency(value)}
+              tickFormatter={(value) => censorValue(formatCurrency(value), isValuesCensored)}
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend 

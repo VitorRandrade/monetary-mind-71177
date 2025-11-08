@@ -2,7 +2,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { CircularProgress } from "./CircularProgress";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, AlertCircle, CheckCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, censorValue } from "@/lib/utils";
+import { usePrivacy } from "@/contexts/PrivacyContext";
 
 interface HealthScoreProps {
   score: number;
@@ -15,6 +16,8 @@ interface HealthScoreProps {
 }
 
 export function HealthScore({ score, factors, className }: HealthScoreProps) {
+  const { isValuesCensored } = usePrivacy();
+  
   const getScoreLabel = (score: number) => {
     if (score >= 80) return { label: "Excelente", color: "text-success" };
     if (score >= 60) return { label: "Bom", color: "text-primary" };
@@ -61,7 +64,7 @@ export function HealthScore({ score, factors, className }: HealthScoreProps) {
               <div>
                 <p className="text-sm font-medium">{factor.label}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {factor.description}
+                  {censorValue(factor.description, isValuesCensored)}
                 </p>
               </div>
             </div>

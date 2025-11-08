@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, censorValue } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
-import { ValueDisplay } from "@/components/ValueDisplay";
+import { usePrivacy } from "@/contexts/PrivacyContext";
 
 interface StatCardProps {
   title: string;
@@ -50,6 +50,9 @@ export function StatCard({
   variant = "default",
   className,
 }: StatCardProps) {
+  const { isValuesCensored } = usePrivacy();
+  const displayValue = censorValue(value, isValuesCensored);
+  
   return (
     <Card
       className={cn(
@@ -62,7 +65,7 @@ export function StatCard({
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <p className="text-sm font-medium text-muted-foreground mb-2">{title}</p>
-            <h3 className="text-3xl font-bold tracking-tight mb-1">{value}</h3>
+            <h3 className="text-3xl font-bold tracking-tight mb-1">{displayValue}</h3>
             {subtitle && (
               <p className="text-xs text-muted-foreground">{subtitle}</p>
             )}

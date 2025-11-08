@@ -1,8 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, censorValue } from "@/lib/utils";
 import { LucideIcon, TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { ValueDisplay } from "@/components/ValueDisplay";
+import { usePrivacy } from "@/contexts/PrivacyContext";
 
 interface InsightCardProps {
   title: string;
@@ -16,6 +16,8 @@ interface InsightCardProps {
 }
 
 export function InsightCard({ title, insights, className }: InsightCardProps) {
+  const { isValuesCensored } = usePrivacy();
+  
   const getTrendIcon = (trend?: number) => {
     if (!trend) return Minus;
     if (trend > 0) return TrendingUp;
@@ -48,7 +50,7 @@ export function InsightCard({ title, insights, className }: InsightCardProps) {
                 )}
                 <div>
                   <p className="text-sm font-medium">{insight.label}</p>
-                  <p className="text-lg font-bold mt-1">{insight.value}</p>
+                  <p className="text-lg font-bold mt-1">{censorValue(insight.value, isValuesCensored)}</p>
                 </div>
               </div>
               {insight.trend !== undefined && (
