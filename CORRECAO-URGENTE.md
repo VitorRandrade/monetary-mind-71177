@@ -103,7 +103,14 @@ PM2 tentando usar tsx que não está em produção
     "strictNullChecks": false
   },
   "include": ["server/**/*"],
-  "exclude": ["node_modules", "dist", "dist-server"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-server",
+    "server/test-*.ts",
+    "server/**/*.test.ts",
+    "server/**/*.spec.ts"
+  ]
 }
 ```
 
