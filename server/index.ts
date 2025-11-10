@@ -1,6 +1,8 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
 import { pool, query } from './database.js';
 import {
@@ -23,6 +25,10 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Resolver caminhos (ESM)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Middlewares
 app.use(cors({
   origin: ['http://localhost:8080', 'http://localhost:5173'],
@@ -30,6 +36,19 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(cookieParser());
+
+// ==================== SERVE FRONTEND (PRODUÇÃO) ====================
+if (process.env.NODE_ENV === 'production') {
+  const distDir = path.resolve(__dirname, '../dist');
+  app.use(express.static(distDir, {
+    index: 'index.html',
+    extensions: ['html'],
+  }));
+  // SPA fallback
+  app.get(/^(?!\/api\/).+/, (_req, res) => {
+    res.sendFile(path.join(distDir, 'index.html'));
+  });
+}
 
 // Middleware de log
 app.use((req, _res, next) => {
