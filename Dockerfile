@@ -16,6 +16,9 @@ COPY . .
 # Build do frontend
 RUN npm run build
 
+# Compilar servidor TypeScript para JavaScript
+RUN npx tsc --project tsconfig.server.json
+
 # Production stage
 FROM node:20-alpine
 
@@ -33,7 +36,10 @@ RUN npm ci --only=production
 # Copiar build do frontend do stage anterior
 COPY --from=builder /app/dist ./dist
 
-# Copiar código do servidor
+# Copiar servidor compilado
+COPY --from=builder /app/dist-server ./dist-server
+
+# Copiar código do servidor (para database scripts)
 COPY server ./server
 COPY database ./database
 

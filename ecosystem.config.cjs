@@ -2,9 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'monetary-mind',
-      script: 'server/index.ts',
-      interpreter: 'node',
-      interpreter_args: '--loader tsx',
+      script: 'dist-server/index.js',
       instances: 2,
       exec_mode: 'cluster',
       watch: false,
