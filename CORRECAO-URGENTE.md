@@ -14,15 +14,21 @@ ReferenceError: module is not defined in ES module scope
 ecosystem.config.js incompatível com "type": "module"
 ```
 
-### ❌ Erro 3: Module Not Found
+### ❌ Erro 3: Module Not Found (Build)
 ```
 Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'tsx'
 PM2 tentando usar tsx que não está em produção
 ```
 
+### ❌ Erro 4: Module Not Found (Runtime)
+```
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/app/dist-server/database'
+Imports ES modules precisam da extensão .js
+```
+
 ---
 
-## ✅ SOLUÇÃO RÁPIDA - 4 Passos no GitHub
+## ✅ SOLUÇÃO RÁPIDA - 7 Passos no GitHub
 
 ### 📝 Passo 1: Editar `package.json`
 
@@ -90,7 +96,7 @@ PM2 tentando usar tsx que não está em produção
     "target": "ES2022",
     "module": "ES2022",
     "lib": ["ES2023"],
-    "moduleResolution": "node",
+    "moduleResolution": "node16",
     "outDir": "./dist-server",
     "rootDir": "./server",
     "strict": false,
@@ -203,6 +209,26 @@ COPY --from=builder /app/dist-server ./dist-server
 
 ---
 
+### 📝 Passo 7: Editar `server/index.ts`
+
+🔗 https://github.com/VitorRandrade/monetary-mind-71177/edit/main/server/index.ts
+
+**Mudança A (linha 5):**
+```diff
+- import { pool, query } from './database';
++ import { pool, query } from './database.js';
+```
+
+**Mudança B (linha 19):**
+```diff
+-} from './auth';
++} from './auth.js';
+```
+
+✅ Commit changes
+
+---
+
 ## 🚀 Fazer Deploy
 
 Após aplicar as 3 correções acima:
@@ -220,6 +246,7 @@ Após aplicar as 3 correções acima:
 - [ ] `Dockerfile` editado (4 mudanças - 2 antigas + 2 novas)
 - [ ] `tsconfig.server.json` criado
 - [ ] `ecosystem.config.cjs` conteúdo substituído
+- [ ] `server/index.ts` editado (2 mudanças - adicionar .js)
 - [ ] Deploy no Easypanel iniciado
 - [ ] ✅ Aplicação funcionando!
 
