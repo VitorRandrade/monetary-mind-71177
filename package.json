@@ -13,7 +13,7 @@
     "server": "tsx watch server/index.ts",
     "server:prod": "NODE_ENV=production node --loader tsx server/index.ts",
     "start": "concurrently \"npm run server\" \"npm run dev\"",
-    "start:prod": "NODE_ENV=production pm2 start ecosystem.config.js",
+    "start:prod": "NODE_ENV=production pm2 start ecosystem.config.cjs",
     "seed-auth": "tsx server/seed-auth.ts",
     "migrate": "psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f database/init-complete.sql",
     "backup": "bash backup.sh",

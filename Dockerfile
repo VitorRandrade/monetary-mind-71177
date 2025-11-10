@@ -38,7 +38,7 @@ COPY server ./server
 COPY database ./database
 
 # Copiar arquivos de configuração
-COPY ecosystem.config.js ./
+COPY ecosystem.config.cjs ./
 COPY vite.config.ts ./
 COPY tsconfig*.json ./
 
@@ -57,4 +57,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Start com PM2
-CMD ["pm2-runtime", "start", "ecosystem.config.js"]
+CMD ["pm2-runtime", "start", "ecosystem.config.cjs"]
