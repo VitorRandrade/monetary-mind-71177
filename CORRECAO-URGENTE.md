@@ -1,6 +1,6 @@
 # 🚨 CORREÇÕES URGENTES - DEPLOY VPS
 
-## ⚠️ 2 Erros Corrigidos
+## ⚠️ 3 Erros Corrigidos
 
 ### ❌ Erro 1: Build Failed
 ```
@@ -14,9 +14,15 @@ ReferenceError: module is not defined in ES module scope
 ecosystem.config.js incompatível com "type": "module"
 ```
 
+### ❌ Erro 3: Module Not Found
+```
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'tsx'
+PM2 tentando usar tsx que não está em produção
+```
+
 ---
 
-## ✅ SOLUÇÃO RÁPIDA - 3 Passos no GitHub
+## ✅ SOLUÇÃO RÁPIDA - 4 Passos no GitHub
 
 ### 📝 Passo 1: Editar `package.json`
 
@@ -70,6 +76,126 @@ ecosystem.config.js incompatível com "type": "module"
 
 ---
 
+### 📝 Passo 4: Criar `tsconfig.server.json`
+
+🔗 https://github.com/VitorRandrade/monetary-mind-71177/new/main
+
+1. Clique em "Add file" → "Create new file"
+2. Nome: `tsconfig.server.json`
+3. Cole este conteúdo:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "lib": ["ES2023"],
+    "moduleResolution": "node",
+    "outDir": "./dist-server",
+    "rootDir": "./server",
+    "strict": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "noImplicitAny": false,
+    "strictNullChecks": false
+  },
+  "include": ["server/**/*"],
+  "exclude": ["node_modules", "dist", "dist-server"]
+}
+```
+
+✅ Commit changes
+
+---
+
+### 📝 Passo 5: Editar `ecosystem.config.cjs`
+
+🔗 https://github.com/VitorRandrade/monetary-mind-71177/edit/main/ecosystem.config.cjs
+
+**Substituir TODO o conteúdo por:**
+
+```javascript
+module.exports = {
+  apps: [
+    {
+      name: 'monetary-mind',
+      script: 'dist-server/index.js',
+      instances: 2,
+      exec_mode: 'cluster',
+      watch: false,
+      max_memory_restart: '500M',
+      env: {
+        NODE_ENV: 'production',
+        PORT: 3001,
+      },
+      env_production: {
+        NODE_ENV: 'production',
+      },
+      error_file: 'logs/pm2-error.log',
+      out_file: 'logs/pm2-out.log',
+      log_file: 'logs/pm2-combined.log',
+      time: true,
+      autorestart: true,
+      max_restarts: 10,
+      min_uptime: '10s',
+      listen_timeout: 3000,
+      kill_timeout: 5000,
+    },
+  ],
+};
+```
+
+✅ Commit changes
+
+---
+
+### 📝 Passo 6: Editar `Dockerfile`
+
+🔗 https://github.com/VitorRandrade/monetary-mind-71177/edit/main/Dockerfile
+
+**Mudança A (após `RUN npm run build`, linha ~15):**
+Adicionar esta linha:
+```dockerfile
+# Compilar servidor TypeScript para JavaScript
+RUN npx tsc --project tsconfig.server.json
+```
+
+**Mudança B (linha ~33, após `COPY --from=builder /app/dist ./dist`):**
+Adicionar:
+```dockerfile
+# Copiar servidor compilado
+COPY --from=builder /app/dist-server ./dist-server
+```
+
+**Resultado esperado (linhas 13-17):**
+```dockerfile
+# Build do frontend
+RUN npm run build
+
+# Compilar servidor TypeScript para JavaScript
+RUN npx tsc --project tsconfig.server.json
+
+# Production stage
+```
+
+**Resultado esperado (linhas 30-35):**
+```dockerfile
+# Copiar build do frontend do stage anterior
+COPY --from=builder /app/dist ./dist
+
+# Copiar servidor compilado
+COPY --from=builder /app/dist-server ./dist-server
+
+# Copiar código do servidor (para database scripts)
+```
+
+✅ Commit changes
+
+---
+
 ## 🚀 Fazer Deploy
 
 Após aplicar as 3 correções acima:
@@ -84,7 +210,9 @@ Após aplicar as 3 correções acima:
 
 - [ ] `package.json` editado (2 mudanças)
 - [ ] `ecosystem.config.js` renomeado para `.cjs`
-- [ ] `Dockerfile` editado (2 mudanças)
+- [ ] `Dockerfile` editado (4 mudanças - 2 antigas + 2 novas)
+- [ ] `tsconfig.server.json` criado
+- [ ] `ecosystem.config.cjs` conteúdo substituído
 - [ ] Deploy no Easypanel iniciado
 - [ ] ✅ Aplicação funcionando!
 
