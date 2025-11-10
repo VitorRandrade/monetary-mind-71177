@@ -97,11 +97,11 @@ export function useParcelas() {
         };
       });
 
-      // Ordenar por vencimento mais próximo primeiro
+      // Ordenar por vencimento mais recente primeiro (DESC)
       const sortedParcelas = processedParcelas.sort((a, b) => {
         const dateA = new Date(a.vencimento || a.competencia);
         const dateB = new Date(b.vencimento || b.competencia);
-        return dateA.getTime() - dateB.getTime();
+        return dateB.getTime() - dateA.getTime(); // DESC
       });
 
       setParcelas(sortedParcelas);

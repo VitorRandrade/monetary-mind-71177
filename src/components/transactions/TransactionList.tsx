@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -112,7 +112,7 @@ export function TransactionList({
     <Card>
       <CardHeader>
         <CardTitle className="text-lg">Lista de Transações</CardTitle>
-        <CardDescription>
+        <div className="text-sm text-muted-foreground">
           {loading ? (
             <div className="flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -123,7 +123,7 @@ export function TransactionList({
           ) : (
             `${transactions.length} transações encontradas`
           )}
-        </CardDescription>
+        </div>
       </CardHeader>
       <CardContent className="p-0">
         {error ? (
@@ -210,7 +210,7 @@ export function TransactionList({
                         </div>
                         
                         {transaction.notes && (
-                          <p className="text-xs text-muted-foreground mt-1">{transaction.notes}</p>
+                          <div className="text-xs text-muted-foreground mt-1">{transaction.notes}</div>
                         )}
                       </div>
                     </div>

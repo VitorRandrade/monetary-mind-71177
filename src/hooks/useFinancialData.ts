@@ -1,6 +1,7 @@
 // Hook central para dados financeiros
 // Substitui múltiplos hooks especializados por um sistema unificado
 
+import { useMemo } from "react";
 import { useFinanceiroClient, useFinanceiroRead, usePostEvent } from "./useFinanceiro";
 import { useToast } from "./use-toast";
 import type { 
@@ -176,7 +177,17 @@ export function useInvoices(cardId?: string) {
     cartao_id?: string; 
     competencia?: string 
   }) => {
-    return postEvent("fatura.fechar", invoiceData);
+    // Usar endpoint direto ao invés de postEvent
+    const response = await client.http('/events/fatura.fechar', {
+      method: 'POST',
+      headers: client.buildHeaders(),
+      body: JSON.stringify({
+        ...invoiceData,
+        tenant_id: 'obsidian'
+      })
+    });
+    refresh(); // Atualizar lista de faturas
+    return response;
   };
 
   const payInvoice = async (paymentData: { 
@@ -185,7 +196,17 @@ export function useInvoices(cardId?: string) {
     valor_pago: number; 
     data_pagamento: string;
   }) => {
-    return postEvent("fatura.pagar", paymentData);
+    // Usar endpoint direto ao invés de postEvent
+    const response = await client.http('/events/fatura.pagar', {
+      method: 'POST',
+      headers: client.buildHeaders(),
+      body: JSON.stringify({
+        ...paymentData,
+        tenant_id: 'obsidian'
+      })
+    });
+    refresh(); // Atualizar lista de faturas
+    return response;
   };
 
   return {
@@ -203,11 +224,12 @@ export function useInvoices(cardId?: string) {
 export function useInvoiceItems(invoiceId?: string, additionalFilters?: Record<string, any>) {
   const { client } = useFinancialData();
   
-  const filters = invoiceId 
-    ? { fatura_id: invoiceId, order: "data_compra.desc", limit: 100, ...additionalFilters } 
-    : { order: "data_compra.desc", limit: 100, ...additionalFilters };
-  
-  console.log("DEBUG useInvoiceItems - Filtros:", filters);
+  // Memoizar filters para evitar loop infinito
+  const filters = useMemo(() => {
+    return invoiceId 
+      ? { fatura_id: invoiceId, order: "data_compra.desc", limit: 100, ...additionalFilters } 
+      : { order: "data_compra.desc", limit: 100, ...additionalFilters };
+  }, [invoiceId, JSON.stringify(additionalFilters)]);
   
   const { data: items, loading, error, refresh } = useFinanceiroRead<InvoiceItem>(
     client,
@@ -215,11 +237,6 @@ export function useInvoiceItems(invoiceId?: string, additionalFilters?: Record<s
     filters,
     [invoiceId, JSON.stringify(additionalFilters)]
   );
-
-  console.log("DEBUG useInvoiceItems - Resultado:", {
-    count: items?.length || 0,
-    items: items?.slice(0, 3)
-  });
 
   return {
     items: items || [],

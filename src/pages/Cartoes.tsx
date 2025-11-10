@@ -44,6 +44,7 @@ import { InvoiceListItem } from "@/components/InvoiceListItem";
 import { ValueDisplay } from "@/components/ValueDisplay";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CompactTable, CompactTableHeader, CompactTableRow, TableBody, TableCell, TableHead } from "@/components/CompactTable";
+import { TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { formatCompetencia, parseDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/utils";
@@ -68,22 +69,33 @@ export default function CartoesPage() {
 
 
   // Itens de fatura do mês atual para TODOS os cartões (para montar o 'Usado' no grid)
-  const monthCompetenciaAll = new Date().toISOString().slice(0, 7);
+  // ✅ CORRIGIDO: Backend espera competencia no formato YYYY-MM-DD completo
+  const monthCompetenciaAll = format(new Date(), 'yyyy-MM-01');
+  
   const { items: allItemsThisMonth } = useInvoiceItems(undefined, {
-    competencia: monthCompetenciaAll,
+    competencia: monthCompetenciaAll, // Já está no formato correto YYYY-MM-DD
     order: "data_compra.desc",
     limit: 500
   });
 
   const usageByCard = useMemo(() => {
     const map: Record<string, number> = {};
+    
     (allItemsThisMonth || []).forEach((i) => {
-      const v = typeof i.valor === 'string' ? parseFloat(i.valor) : (i.valor || 0);
-      if (!i.cartao_id) return;
-      map[i.cartao_id] = (map[i.cartao_id] || 0) + v;
+      // Validar que a competência do item corresponde ao mês atual
+      const itemCompetencia = typeof i.competencia === 'string' 
+        ? i.competencia.substring(0, 7) 
+        : format(new Date(i.competencia), 'yyyy-MM-01');
+      
+      if (itemCompetencia === monthCompetenciaAll.substring(0, 7)) {
+        const v = typeof i.valor === 'string' ? parseFloat(i.valor) : (i.valor || 0);
+        if (!i.cartao_id) return;
+        map[i.cartao_id] = (map[i.cartao_id] || 0) + v;
+      }
     });
+    
     return map;
-  }, [allItemsThisMonth]);
+  }, [allItemsThisMonth, monthCompetenciaAll]);
 
   const getUsagePercentage = (used: number, limit: string | number): number => {
     const limitNum = typeof limit === 'string' ? parseFloat(limit) : limit;
@@ -102,7 +114,10 @@ export default function CartoesPage() {
 
   const getCurrentInvoice = (card: CreditCard) => {
     const currentMonth = formatCompetencia(new Date());
-    return invoices.find(inv => formatCompetencia(inv.competencia) === currentMonth);
+    return invoices.find(inv => 
+      inv.cartao_id === card.id && 
+      formatCompetencia(inv.competencia) === currentMonth
+    );
   };
 
   const getCardUsage = (card: CreditCard) => {
@@ -123,7 +138,7 @@ export default function CartoesPage() {
     currentInvoice?.id,
     selectedCard && !currentInvoice ? { 
       cartao_id: selectedCard.id, 
-      competencia: currentCompetencia 
+      competencia: `${currentCompetencia}-01` // ✅ CORRIGIDO: Backend espera formato YYYY-MM-DD
     } : undefined
   );
 
@@ -174,6 +189,7 @@ export default function CartoesPage() {
   }, [invoiceItems, searchTerm, categories]);
 
   // Todas as faturas do cartão selecionado, agrupadas por ano
+  // ✅ MELHORADO: Ordenação DESC (mais recente primeiro)
   const invoicesByYear = useMemo(() => {
     const grouped: Record<string, typeof invoices> = {};
     invoices.forEach(inv => {
@@ -204,6 +220,7 @@ export default function CartoesPage() {
   }, [invoicesByYear]);
 
   // Faturas dos últimos 12 meses para o histórico (apenas anteriores ao mês atual)
+  // ✅ MELHORADO: Separar histórico (pagas/fechadas) de futuras
   const last12MonthsInvoices = useMemo(() => {
     const now = new Date();
     const currentMonth = format(now, "yyyy-MM");
@@ -213,20 +230,41 @@ export default function CartoesPage() {
     return invoices
       .filter(inv => {
         const invDate = toCompDate(inv.competencia);
-        return invDate >= twelveMonthsAgo && inv.competencia < currentMonth;
+        const compStr = format(invDate, "yyyy-MM");
+        // Apenas faturas do passado que foram pagas ou fechadas
+        return invDate >= twelveMonthsAgo && 
+               compStr < currentMonth && 
+               (inv.status === 'paga' || inv.status === 'fechada');
       })
       .sort((a, b) => {
-        return a.competencia.localeCompare(b.competencia) * -1;
+        return b.competencia.localeCompare(a.competencia); // DESC
       });
   }, [invoices]);
 
-  console.log("DEBUG Cartões - Compras encontradas:", {
-    cartaoId: selectedCard?.id,
-    competencia: currentCompetencia,
-    totalCompras: invoiceItems?.length || 0,
-    valorCalculado: usedPending,
-    currentInvoiceId: currentInvoice?.id
-  });
+  // Faturas futuras (próximos meses)
+  const upcomingInvoices = useMemo(() => {
+    const now = new Date();
+    const currentMonth = format(now, "yyyy-MM");
+    
+    return invoices
+      .filter(inv => {
+        const invDate = toCompDate(inv.competencia);
+        const compStr = format(invDate, "yyyy-MM");
+        return compStr > currentMonth;
+      })
+      .sort((a, b) => {
+        return a.competencia.localeCompare(b.competencia); // ASC para futuras
+      });
+  }, [invoices]);
+
+  // DEBUG: Remover após validação
+  // console.log("DEBUG Cartões - Compras encontradas:", {
+  //   cartaoId: selectedCard?.id,
+  //   competencia: currentCompetencia,
+  //   totalCompras: invoiceItems?.length || 0,
+  //   valorCalculado: usedPending,
+  //   currentInvoiceId: currentInvoice?.id
+  // });
 
   if (loading) {
     return (
@@ -310,17 +348,30 @@ export default function CartoesPage() {
   const handleSaveCard = async () => {
     if (!selectedCard) return;
     try {
-      await updateCard(selectedCard.id, editForm);
+      // Garantir que todos os campos necessários sejam enviados
+      const updateData = {
+        apelido: editForm.apelido || selectedCard.apelido,
+        bandeira: editForm.bandeira || selectedCard.bandeira,
+        limite_total: editForm.limite_total ?? selectedCard.limite_total,
+        dia_fechamento: editForm.dia_fechamento ?? selectedCard.dia_fechamento,
+        dia_vencimento: editForm.dia_vencimento ?? selectedCard.dia_vencimento,
+        conta_pagamento_id: editForm.conta_pagamento_id ?? selectedCard.conta_pagamento_id,
+      };
+      
+      console.log('💾 Salvando cartão:', { id: selectedCard.id, ...updateData });
+      await updateCard(selectedCard.id, updateData);
+      
       toast({
         title: "Cartão atualizado",
         description: "As alterações foram salvas com sucesso.",
       });
       setEditMode(false);
       refresh();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('❌ Erro ao atualizar cartão:', error);
       toast({
         title: "Erro ao atualizar",
-        description: "Não foi possível salvar as alterações.",
+        description: error.message || "Não foi possível salvar as alterações.",
         variant: "destructive",
       });
     }
@@ -476,37 +527,68 @@ export default function CartoesPage() {
           </CardHeader>
         </Card>
 
-        <Tabs defaultValue="invoices" className="space-y-4">
+        <Tabs defaultValue="current" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="invoices">Faturas</TabsTrigger>
+            <TabsTrigger value="current">Fatura Atual</TabsTrigger>
+            <TabsTrigger value="upcoming">Próximas Faturas</TabsTrigger>
             <TabsTrigger value="history">Histórico</TabsTrigger>
             <TabsTrigger value="settings">Configurações</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="invoices" className="space-y-4">
+          <TabsContent value="current" className="space-y-4">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Faturas do Cartão</CardTitle>
-                    <CardDescription>Todas as faturas</CardDescription>
+                    <CardTitle>Fatura do Mês Atual</CardTitle>
+                    <CardDescription>
+                      {format(new Date(), "MMMM 'de' yyyy", { locale: ptBR })}
+                    </CardDescription>
                   </div>
-                  <Button 
-                    onClick={() => setIsAddPurchaseModalOpen(true)}
-                    size="sm"
-                  >
-                    <ShoppingBag className="w-4 h-4 mr-2" />
-                    Nova Compra
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => setIsAddPurchaseModalOpen(true)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <ShoppingBag className="w-4 h-4 mr-2" />
+                      Nova Compra
+                    </Button>
+                    {currentInvoice?.status === "aberta" && (
+                      <Button 
+                        size="sm"
+                        onClick={() => setIsInvoiceActionsModalOpen(true)}
+                      >
+                        <Receipt className="w-3 h-3 mr-2" />
+                        Fechar Fatura
+                      </Button>
+                    )}
+                    {currentInvoice?.status === "fechada" && (
+                      <Button 
+                        size="sm"
+                        onClick={() => {
+                          setInvoiceToPayId(currentInvoice.id);
+                          setIsPayInvoiceModalOpen(true);
+                        }}
+                      >
+                        <DollarSign className="w-3 h-3 mr-2" />
+                        Pagar Fatura
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
-                {years.length === 0 ? (
+                {loadingItems ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Carregando compras...
+                  </div>
+                ) : filteredItems.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
-                    <Receipt className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                    <p className="font-medium">Nenhuma fatura encontrada</p>
+                    <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p className="font-medium">Nenhuma compra este mês</p>
                     <p className="text-sm mt-1">
-                      Faça sua primeira compra para começar a usar este cartão
+                      Adicione sua primeira compra para começar
                     </p>
                     <Button 
                       onClick={() => setIsAddPurchaseModalOpen(true)}
@@ -514,31 +596,102 @@ export default function CartoesPage() {
                       className="mt-4"
                     >
                       <ShoppingBag className="w-4 h-4 mr-2" />
-                      Fazer Primeira Compra
+                      Adicionar Compra
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-6">
-                    {years.map(year => (
-                      <div key={year} className="space-y-2">
-                        <h3 className="text-lg font-semibold text-muted-foreground px-1">{year}</h3>
-                        <Accordion type="single" collapsible className="space-y-2">
-                          {invoicesByYear[year].map(invoice => (
-                            <InvoiceListItem
-                              key={invoice.id}
-                              invoice={invoice}
-                              categories={categories}
-                              formatCurrency={formatCurrency}
-                              onPayInvoice={() => {
-                                setInvoiceToPayId(invoice.id);
-                                setIsPayInvoiceModalOpen(true);
-                              }}
-                            />
-                          ))}
-                        </Accordion>
-                      </div>
-                    ))}
+                  <div className="space-y-4">
+                    {/* Busca de compras */}
+                    <div className="flex items-center gap-2">
+                      <Search className="w-4 h-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar compras..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="max-w-sm"
+                      />
+                    </div>
+
+                    {/* Lista de compras */}
+                    <CompactTable>
+                      <CompactTableHeader>
+                        <TableRow>
+                          <TableHead>Data</TableHead>
+                          <TableHead>Descrição</TableHead>
+                          <TableHead>Categoria</TableHead>
+                          <TableHead>Parcela</TableHead>
+                          <TableHead className="text-right">Valor</TableHead>
+                        </TableRow>
+                      </CompactTableHeader>
+                      <TableBody>
+                        {filteredItems.map((item) => (
+                          <CompactTableRow key={item.id}>
+                            <TableCell>{format(new Date(item.data_compra), "dd/MM/yyyy")}</TableCell>
+                            <TableCell className="font-medium">{item.descricao}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {item.categoria_nome || item.categoria_pai_nome || "—"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {item.parcela_total > 1 ? (
+                                <Badge className="bg-blue-500">
+                                  {item.parcela_numero}/{item.parcela_total}x
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              <ValueDisplay value={typeof item.valor === 'string' ? parseFloat(item.valor) : item.valor} size="sm" />
+                            </TableCell>
+                          </CompactTableRow>
+                        ))}
+                      </TableBody>
+                    </CompactTable>
+
+                    {/* Total */}
+                    <Separator />
+                    <div className="flex justify-between items-center pt-2">
+                      <span className="text-lg font-semibold">Total da Fatura:</span>
+                      <ValueDisplay value={usedPending} size="xl" className="font-bold text-primary" />
+                    </div>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="upcoming" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Próximas Faturas</CardTitle>
+                <CardDescription>
+                  Compras parceladas que cairão nos próximos meses
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {upcomingInvoices.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Calendar className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p className="font-medium">Sem faturas futuras</p>
+                    <p className="text-sm mt-1">Compras parceladas aparecerão aqui</p>
+                  </div>
+                ) : (
+                  <Accordion type="single" collapsible className="w-full">
+                    {upcomingInvoices.map((invoice) => (
+                      <InvoiceListItem
+                        key={invoice.id}
+                        invoice={invoice}
+                        categories={categories}
+                        formatCurrency={formatCurrency}
+                        onPayInvoice={() => {
+                          setInvoiceToPayId(invoice.id);
+                          setIsPayInvoiceModalOpen(true);
+                        }}
+                      />
+                    ))}
+                  </Accordion>
                 )}
               </CardContent>
             </Card>
@@ -549,13 +702,13 @@ export default function CartoesPage() {
               <CardHeader>
                 <CardTitle>Histórico de Faturas</CardTitle>
                 <CardDescription>
-                  Visualize faturas anteriores e seus detalhes
+                  Faturas pagas e fechadas dos últimos 12 meses
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {last12MonthsInvoices.filter(inv => formatCompetencia(inv.competencia) < formatCompetencia(new Date())).length > 0 ? (
+                {last12MonthsInvoices.length > 0 ? (
                   <Accordion type="single" collapsible className="w-full">
-                    {last12MonthsInvoices.filter(inv => formatCompetencia(inv.competencia) < formatCompetencia(new Date())).map((invoice) => (
+                    {last12MonthsInvoices.map((invoice) => (
                       <InvoiceHistoryItem
                         key={invoice.id}
                         invoice={invoice}
@@ -773,6 +926,9 @@ export default function CartoesPage() {
               id: inv.id,
               valor_total: typeof inv.valor_total === 'string' ? 
                 parseFloat(inv.valor_total || '0') : (inv.valor_total || 0),
+              valor_fechado: typeof inv.valor_fechado === 'string' ?
+                parseFloat(inv.valor_fechado || '0') : (inv.valor_fechado || 0),
+              status: inv.status,
               data_vencimento: inv.data_vencimento,
               competencia: inv.competencia,
               cartao_id: inv.cartao_id

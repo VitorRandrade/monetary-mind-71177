@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { CalendarIcon, CreditCard as CreditCardIcon, ShoppingBag, AlertCircle } from "lucide-react";
-import { format, addMonths } from "date-fns";
+import { format, addMonths, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useCreditCards, useCreditPurchases } from "@/hooks/useFinancialData";
@@ -46,8 +46,7 @@ export default function AddPurchaseModal({
 
   const { toast } = useToast();
   const { activeCards } = useCreditCards();
-  const { categories } = useCategories();
-  const subCategories = categories.filter(cat => cat.parent_id !== null);
+  const { subcategoriesForSelect } = useCategories();
   const { createPurchase, posting } = useCreditPurchases();
   
   const handleSuccess = () => {
@@ -55,9 +54,15 @@ export default function AddPurchaseModal({
       title: "Compra registrada",
       description: "A compra foi adicionada ao cartão com sucesso.",
     });
-    resetForm();
-    onSuccess?.();
+    
+    // Fechar modal primeiro para evitar re-renders
     onOpenChange(false);
+    
+    // Aguardar 100ms antes de resetar e disparar refresh
+    setTimeout(() => {
+      resetForm();
+      onSuccess?.();
+    }, 100);
   };
 
   const handleError = (error: Error) => {
@@ -89,11 +94,22 @@ export default function AddPurchaseModal({
     const diaCompra = dataCompra.getDate();
     const diaFechamento = cartao.dia_fechamento;
     
+    let competenciaCalculada: string;
     if (diaCompra <= diaFechamento) {
-      return format(dataCompra, "yyyy-MM-01");
+      competenciaCalculada = format(dataCompra, "yyyy-MM-01");
     } else {
-      return format(addMonths(dataCompra, 1), "yyyy-MM-01");
+      competenciaCalculada = format(addMonths(dataCompra, 1), "yyyy-MM-01");
     }
+    
+    console.log(`🗓️ getCompetencia:`, {
+      dataCompra: format(dataCompra, "dd/MM/yyyy"),
+      diaCompra,
+      diaFechamento,
+      entraProximaFatura: diaCompra > diaFechamento,
+      competencia: competenciaCalculada
+    });
+    
+    return competenciaCalculada;
   };
 
   // Gera preview das parcelas
@@ -107,8 +123,11 @@ export default function AddPurchaseModal({
     const competenciaInicial = getCompetencia(form.data_compra, form.cartao_id);
     
     return Array.from({ length: form.parcela_total }, (_, i) => {
-      const competencia = format(addMonths(new Date(competenciaInicial), i), "yyyy-MM-01");
-      const mesAno = format(new Date(competencia), "MMM/yyyy", { locale: ptBR });
+      // ✅ Usar parseISO para evitar shift de timezone
+      const dataBase = parseISO(competenciaInicial);
+      const dataCompetencia = addMonths(dataBase, i);
+      const competencia = format(dataCompetencia, "yyyy-MM-dd");
+      const mesAno = format(dataCompetencia, "MMM/yyyy", { locale: ptBR });
       
       return {
         numero: i + 1,
@@ -187,29 +206,42 @@ export default function AddPurchaseModal({
       // Compra parcelada - múltiplos itens
       const competenciaInicial = getCompetencia(form.data_compra, form.cartao_id);
       
+      console.log(`🗓️ Competencia inicial calculada: ${competenciaInicial} (Data compra: ${format(form.data_compra, "dd/MM/yyyy")})`);
+      
       try {
         for (let i = 0; i < form.parcela_total; i++) {
-          const competencia = format(addMonths(new Date(competenciaInicial), i), "yyyy-MM-01");
+          // ✅ IMPORTANTE: usar parseISO para evitar problemas de timezone
+          const dataBase = parseISO(competenciaInicial);
+          const dataCompetencia = addMonths(dataBase, i);
+          const competencia = format(dataCompetencia, "yyyy-MM-dd");
           const descricao = `${form.descricao} (${i + 1}/${form.parcela_total})`;
           
-          console.log("DEBUG AddPurchaseModal - Enviando parcela:", {
+          console.log(`📤 Enviando parcela ${i + 1}/${form.parcela_total}:`, {
             numero: i + 1,
             total: form.parcela_total,
             descricao,
             competencia,
-            valor: valorParcela
+            competenciaDisplay: format(dataCompetencia, "MMM/yyyy"),
+            valor: valorParcela,
+            categoria_id: form.categoria_id
           });
           
-          await createPurchase({
-            cartao_id: form.cartao_id,
-            competencia,
-            descricao,
-            valor: valorParcela,
-            data_compra: format(form.data_compra, "yyyy-MM-dd"),
-            categoria_id: form.categoria_id,
-            parcela_numero: i + 1,
-            parcela_total: form.parcela_total
-          });
+          try {
+            await createPurchase({
+              cartao_id: form.cartao_id,
+              competencia,
+              descricao,
+              valor: valorParcela,
+              data_compra: format(form.data_compra, "yyyy-MM-dd"),
+              categoria_id: form.categoria_id,
+              parcela_numero: i + 1,
+              parcela_total: form.parcela_total
+            });
+            console.log(`✅ Parcela ${i + 1}/${form.parcela_total} criada com sucesso`);
+          } catch (parcelaError: any) {
+            console.error(`❌ ERRO na parcela ${i + 1}/${form.parcela_total}:`, parcelaError);
+            throw new Error(`Erro na parcela ${i + 1}: ${parcelaError.message}`);
+          }
         }
         handleSuccess();
       } catch (error) {
@@ -264,7 +296,7 @@ export default function AddPurchaseModal({
                   <SelectValue placeholder="Selecione a categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  {subCategories.map((cat) => (
+                  {subcategoriesForSelect.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       {cat.nome}
                     </SelectItem>

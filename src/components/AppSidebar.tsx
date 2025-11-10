@@ -12,10 +12,12 @@ import {
   Calendar,
   Code,
   Wallet,
-  Package
+  Package,
+  Users
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/contexts/AuthContext";
 
 import {
   Sidebar,
@@ -49,6 +51,7 @@ const advancedMenuItems = [
 
 // System items
 const systemMenuItems = [
+  { title: "Usuários", url: "/usuarios", icon: Users, requirePermission: { recurso: 'usuario', acao: 'read' } },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
 ];
 
@@ -57,6 +60,7 @@ export function AppSidebar() {
   const isMobile = useIsMobile();
   const location = useLocation();
   const currentPath = location.pathname;
+  const { hasPermission } = useAuth();
 
   const isActive = (path: string) => currentPath === path;
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
@@ -152,16 +156,23 @@ export function AppSidebar() {
           <SidebarGroupLabel>Sistema</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {systemMenuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink to={item.url} className={getNavCls}>
-                      <item.icon className="w-5 h-5" />
-                      {state !== "collapsed" && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {systemMenuItems.map((item) => {
+                // Verificar permissão se necessário
+                if (item.requirePermission && !hasPermission(item.requirePermission.recurso, item.requirePermission.acao)) {
+                  return null;
+                }
+                
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink to={item.url} className={getNavCls}>
+                        <item.icon className="w-5 h-5" />
+                        {state !== "collapsed" && <span>{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

@@ -10,6 +10,7 @@ export interface Category {
   parent_id: string | null;
   ativo: boolean;
   is_deleted?: boolean;
+  children?: Category[]; // API retorna children já aninhados
 }
 
 export interface CategoryTree {
@@ -34,38 +35,47 @@ export function useCategories() {
   const categoryTree = useMemo(() => {
     if (!categories) return [];
 
-    const activeCategories = categories.filter(cat => !cat.is_deleted);
-    const parentCategories = activeCategories.filter(cat => cat.parent_id === null);
-    
-    return parentCategories.map(parent => ({
-      id: parent.id,
-      nome: parent.nome,
-      tipo: parent.tipo,
-      subcategorias: activeCategories
-        .filter(cat => cat.parent_id === parent.id)
-        .map(sub => ({
-          id: sub.id,
-          nome: sub.nome,
-        }))
-    }));
+    // A API já retorna com children aninhados, apenas converter para subcategorias
+    return categories
+      .filter(cat => cat.parent_id === null && !cat.is_deleted)
+      .map(parent => ({
+        id: parent.id,
+        nome: parent.nome,
+        tipo: parent.tipo,
+        subcategorias: (parent.children || [])
+          .filter(child => !child.is_deleted)
+          .map(sub => ({
+            id: sub.id,
+            nome: sub.nome,
+          }))
+      }));
   }, [categories]);
 
   const subcategoriesForSelect = useMemo(() => {
     if (!categories) return [];
     
-    return categories
-      .filter(cat => cat.parent_id !== null && !cat.is_deleted)
-      .map(sub => {
-        const parent = categories.find(cat => cat.id === sub.parent_id);
-        return {
-          id: sub.id,
-          nome: sub.nome,
-          parent_id: sub.parent_id,
-          parentName: parent?.nome || "Sem categoria",
-          tipo: sub.tipo,
-          fullName: `${parent?.nome || "Sem categoria"} → ${sub.nome}`
-        };
+    // Achatar o array para pegar todas as subcategorias
+    const allSubcategories: Array<{ id: string; nome: string; parent_id: string; parentName: string; tipo: string; fullName: string }> = [];
+    
+    categories
+      .filter(cat => cat.parent_id === null && !cat.is_deleted)
+      .forEach(parent => {
+        (parent.children || [])
+          .filter(child => !child.is_deleted)
+          .forEach(sub => {
+            allSubcategories.push({
+              id: sub.id,
+              nome: sub.nome,
+              parent_id: parent.id,
+              parentName: parent.nome,
+              tipo: sub.tipo,
+              fullName: `${parent.nome} → ${sub.nome}`
+            });
+          });
       });
+    
+    console.log('🔍 Subcategories for select:', allSubcategories);
+    return allSubcategories;
   }, [categories]);
 
   return {

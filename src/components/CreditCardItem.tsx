@@ -15,7 +15,7 @@ interface CreditCardItemProps {
 }
 
 export function CreditCardItem({ card, currentInvoice, onClick }: CreditCardItemProps) {
-  const currentCompetencia = format(new Date(), "yyyy-MM");
+  const currentCompetencia = format(new Date(), "yyyy-MM-01"); // ✅ Formato completo para backend
   
   const { items: invoiceItems } = useInvoiceItems(
     currentInvoice?.id,

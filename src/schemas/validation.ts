@@ -181,7 +181,7 @@ export const creditPurchaseSchema = z.object({
     .uuid("Categoria inválida")
     .optional(),
   
-  parcelas: z.number()
+  parcela_total: z.number()
     .min(1, "Mínimo 1 parcela")
     .max(48, "Máximo 48 parcelas")
     .optional(),
@@ -190,7 +190,7 @@ export const creditPurchaseSchema = z.object({
   (data) => data.subcategoria_id || data.categoria_id,
   {
     message: "Categoria é obrigatória",
-    path: ["subcategoria_id"]
+    path: ["categoria_id"]
   }
 );
 

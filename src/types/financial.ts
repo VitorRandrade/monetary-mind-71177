@@ -58,7 +58,7 @@ export interface Invoice {
   data_fechamento?: string;
   data_vencimento: string;
   data_pagamento?: string;
-  transacao_id?: string; // Link para a transação prevista no ledger
+  transacao_id?: string; // Link para a transação de pagamento no ledger
   tenant_id?: string;
   created_at?: string;
   updated_at?: string;
@@ -79,6 +79,10 @@ export interface InvoiceItem {
   tenant_id?: string;
   created_at?: string;
   updated_at?: string;
+  // Campos do JOIN com categoria
+  categoria_nome?: string;
+  categoria_parent_id?: string;
+  categoria_pai_nome?: string;
 }
 
 export interface Transaction {
@@ -128,6 +132,7 @@ export interface Recurrence {
   descricao: string;
   frequencia: "diario" | "semanal" | "quinzenal" | "mensal" | "anual";
   dia_vencimento?: number;
+  dia_semana?: number; // 0-6 (Domingo-Sábado) para recorrências semanais
   data_inicio: string;
   data_fim?: string;
   ativo?: boolean; // Deprecated, usar is_paused

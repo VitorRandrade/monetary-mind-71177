@@ -1,13 +1,11 @@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Calendar as CalendarIcon, X, AlertCircle } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { Search, AlertCircle } from "lucide-react";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
+import type { DateRange } from "@/hooks/useTransactionFilters";
 
 interface TransactionFiltersProps {
   activeTab: string;
@@ -17,8 +15,8 @@ interface TransactionFiltersProps {
   onFilterTypeChange: (value: string) => void;
   filterStatus: string;
   onFilterStatusChange: (value: string) => void;
-  dateRange: Date | undefined;
-  onDateRangeChange: (date: Date | undefined) => void;
+  dateRange: DateRange;
+  onDateRangeChange: (range: DateRange) => void;
 }
 
 export function TransactionFilters({
@@ -56,41 +54,8 @@ export function TransactionFilters({
       <Card className="border-primary/10">
         <CardContent className="pt-6">
           <div className="space-y-4">
-            {/* Period Quick Filters */}
-            <div className="flex flex-wrap gap-2">
-              <span className="text-sm font-medium text-muted-foreground mr-2">Período:</span>
-              {[
-                { label: 'Hoje', days: 0 },
-                { label: 'Semana', days: 7 },
-                { label: 'Mês', days: 30 },
-                { label: 'Ano', days: 365 }
-              ].map(period => {
-                const periodDate = new Date();
-                periodDate.setDate(periodDate.getDate() - period.days);
-                const isActive = dateRange && dateRange.toDateString() === periodDate.toDateString();
-                
-                return (
-                  <Badge
-                    key={period.label}
-                    variant={isActive ? "default" : "outline"}
-                    className="cursor-pointer hover:bg-primary/20 transition-colors"
-                    onClick={() => onDateRangeChange(period.days === 0 ? new Date() : periodDate)}
-                  >
-                    {period.label}
-                  </Badge>
-                );
-              })}
-              {dateRange && (
-                <Badge
-                  variant="outline"
-                  className="cursor-pointer hover:bg-destructive/20 text-destructive border-destructive/50"
-                  onClick={() => onDateRangeChange(undefined)}
-                >
-                  <X className="w-3 h-3 mr-1" />
-                  Limpar
-                </Badge>
-              )}
-            </div>
+            {/* Date Range Filter */}
+            <DateRangeFilter value={dateRange} onChange={onDateRangeChange} />
 
             {/* Search and Traditional Filters */}
             <div className="flex flex-col sm:flex-row gap-4">
@@ -135,23 +100,6 @@ export function TransactionFilters({
                   </SelectContent>
                 </Select>
               )}
-
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full sm:w-auto">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange ? format(dateRange, "PPP", { locale: ptBR }) : "Selecionar Data"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dateRange}
-                    onSelect={onDateRangeChange}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
             </div>
           </div>
         </CardContent>

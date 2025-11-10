@@ -27,7 +27,7 @@ export function CreditCardUsage() {
     // Se não houver fatura do mês atual, pegar a próxima pendente
     return invoices
       .filter(inv => inv.cartao_id === cardId && inv.competencia >= currentMonth && inv.status !== 'paga')
-      .sort((a, b) => a.competencia.localeCompare(b.competencia))[0];
+      .sort((a, b) => b.competencia.localeCompare(a.competencia))[0]; // DESC: mais recente primeiro
   };
 
   const handleCardClick = (cardId: string) => {

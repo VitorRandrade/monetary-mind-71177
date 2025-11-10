@@ -21,6 +21,8 @@ interface PayInvoiceModalProps {
   invoice?: {
     id: string;
     valor_total: number;
+    valor_fechado?: number;
+    status?: string;
     data_vencimento: string;
     competencia: string;
     cartao_id?: string;
@@ -67,9 +69,14 @@ export default function PayInvoiceModal({ open, onOpenChange, invoice, onSuccess
   // Reset form when invoice changes
   useEffect(() => {
     if (invoice) {
+      // Usar valor_fechado se fatura estiver fechada, senão usar valor_total calculado dos itens
+      const valorFatura = invoice.status === 'fechada' && invoice.valor_fechado 
+        ? invoice.valor_fechado 
+        : invoice.valor_total;
+        
       setForm({
         conta_id: "",
-        valor_pago: invoice.valor_total.toString(),
+        valor_pago: valorFatura.toString(),
         data_pagamento: new Date(),
       });
     }

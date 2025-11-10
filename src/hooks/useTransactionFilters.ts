@@ -1,5 +1,10 @@
 import { useState, useMemo } from "react";
 import { parseDate } from "@/lib/date-utils";
+import { startOfMonth, endOfMonth } from "date-fns";
+import type { DateRange } from "@/components/DateRangeFilter";
+
+// Re-export for convenience
+export type { DateRange };
 
 interface Transaction {
   id: string;
@@ -21,7 +26,12 @@ export function useTransactionFilters(transactions: Transaction[]) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [dateRange, setDateRange] = useState<Date | undefined>(undefined);
+  
+  // ✅ Default: Este mês
+  const [dateRange, setDateRange] = useState<DateRange>({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date())
+  });
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(transaction => {
@@ -33,9 +43,10 @@ export function useTransactionFilters(transactions: Transaction[]) {
       // Type filter
       const matchesType = filterType === "all" || transaction.type === filterType;
       
-      // Date filter
+      // Date range filter
       const transDate = parseDate(transaction.date);
-      const matchesDate = !dateRange || transDate.toDateString() === dateRange.toDateString();
+      const matchesDate = !dateRange || 
+        (transDate >= dateRange.from && transDate <= dateRange.to);
       
       return matchesSearch && matchesType && matchesDate;
     });
@@ -43,7 +54,8 @@ export function useTransactionFilters(transactions: Transaction[]) {
 
   const sortedTransactions = useMemo(() => {
     return [...filteredTransactions].sort((a, b) => {
-      return a.date.getTime() - b.date.getTime();
+      // DESC: mais recente primeiro
+      return b.date.getTime() - a.date.getTime();
     });
   }, [filteredTransactions]);
 

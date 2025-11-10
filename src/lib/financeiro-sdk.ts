@@ -1,7 +1,7 @@
 // financeiro-sdk.ts
-// Mini SDK TS para Lovable ⇄ n8n (Financeiro)
+// SDK TS para conexão com backend local PostgreSQL
 
-const DEFAULT_BASE = "https://docker-n8n-webhook.q4xusi.easypanel.host";
+const DEFAULT_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
 function safeJson(text: string): any | undefined {
   try { return JSON.parse(text); } catch { return undefined; }
@@ -117,6 +117,7 @@ export class FinanceiroSDK {
     payload: any, 
     options?: { eventId?: string; occurredAt?: string }
   ): Promise<any> {
+    // Validações
     if (eventType === "transacao.upsert") {
       const tipo = (payload?.tipo || "").toLowerCase();
       if ((tipo === "credito" || tipo === "debito") && !payload?.subcategoria_id && !payload?.categoria_id) {
@@ -129,18 +130,34 @@ export class FinanceiroSDK {
       }
     }
 
-    const body = {
-      event_id: options?.eventId || uuidv4(),
-      event_type: eventType,
-      tenant_id: this.tenantId,
-      payload: payload || {},
-      occurred_at: options?.occurredAt || new Date().toISOString(),
+    // Mapear eventos para endpoints REST
+    const eventMap: Record<string, { endpoint: string; method: string }> = {
+      'conta.upsert': { endpoint: '/contas', method: 'POST' },
+      'categoria.upsert': { endpoint: '/categorias', method: 'POST' },
+      'subcategoria.upsert': { endpoint: '/categorias', method: 'POST' },
+      'transacao.upsert': { endpoint: '/transacoes', method: 'POST' },
+      'cartao.upsert': { endpoint: '/cartoes', method: 'POST' },
+      'recorrencia.upsert': { endpoint: '/recorrencias', method: 'POST' },
+      'fatura_item.upsert': { endpoint: '/compras', method: 'POST' },
+      'fatura.fechar': { endpoint: '/faturas/fechar', method: 'POST' },
+      'fatura.pagar': { endpoint: '/faturas/pagar', method: 'POST' },
     };
 
-    const result = await this.http("/webhook/financeiro/events", {
-      method: "POST",
+    const mapping = eventMap[eventType];
+    if (!mapping) {
+      throw new Error(`Evento não suportado: ${eventType}`);
+    }
+
+    // Adicionar tenant_id ao payload
+    const bodyWithTenant = {
+      ...payload,
+      tenant_id: payload.tenant_id || this.tenantId
+    };
+
+    const result = await this.http(mapping.endpoint, {
+      method: mapping.method,
       headers: this.buildHeaders(),
-      body: JSON.stringify(body),
+      body: JSON.stringify(bodyWithTenant),
     });
 
     // Dispatch global event for auto-refresh
@@ -159,24 +176,22 @@ export class FinanceiroSDK {
 
     // tenant fixo
     params.set("tenant_id", filters.tenant_id || import.meta.env.VITE_FINANCEIRO_TENANT_ID || this.tenantId);
-    params.set("resource", resource);
 
-    // regras especiais
-    if (resource === "fatura") {
-      if (filters.cartao_id) params.set("cartao_id", filters.cartao_id);
-      if (filters.status) params.set("status", filters.status);
-      params.set("order", filters.order ?? "competencia.desc");
-      params.set("limit", String(filters.limit ?? 100));
-    }
+    // Mapear recursos para endpoints
+    const resourceMap: Record<string, string> = {
+      'conta': '/contas',
+      'categoria': '/categorias',
+      'transacao': '/transacoes',
+      'cartao': '/cartoes',
+      'fatura': '/faturas',
+      'fatura_item': '/faturas/itens',
+      'recorrencia': '/recorrencias',
+      'cheque': '/cheques',
+    };
 
-    if (resource === "fatura_item") {
-      if (filters.fatura_id) params.set("fatura_id", filters.fatura_id);
-      if (filters.cartao_id) params.set("cartao_id", filters.cartao_id);
-      if (filters.competencia) params.set("competencia", filters.competencia);
-      params.set("order", filters.order ?? "data_compra.desc");
-      params.set("limit", String(filters.limit ?? 100));
-    }
+    const endpoint = resourceMap[resource] || `/${resource}s`;
 
+    // Adicionar filtros específicos
     if (resource === "transacao") {
       if (filters.from) params.set("from", filters.from);
       if (filters.to) params.set("to", filters.to);
@@ -188,19 +203,25 @@ export class FinanceiroSDK {
       if (filters.offset != null) params.set("offset", String(filters.offset));
     }
 
+    if (resource === "fatura") {
+      if (filters.cartao_id) params.set("cartao_id", filters.cartao_id);
+      if (filters.status) params.set("status", filters.status);
+      params.set("limit", String(filters.limit ?? 100));
+    }
+
     // outros filtros genéricos
     for (const [key, value] of Object.entries(filters)) {
-      if (!params.has(key) && value != null) {
+      if (!params.has(key) && value != null && key !== 'tenant_id') {
         params.set(key, String(value));
       }
     }
 
-    const url = `${this.baseUrl}/webhook/financeiro/read?${params.toString()}`;
-    console.debug("🔍 Buscando:", url);
+    const url = `${endpoint}?${params.toString()}`;
+    console.debug("🔍 Buscando:", this.baseUrl + url);
     
-    const result = await this.http(url.replace(this.baseUrl, ""), {
+    const result = await this.http(url, {
       method: "GET",
-      headers: this.buildHeaders({ "Content-Type": "application/json" }),
+      headers: this.buildHeaders(),
     });
     
     console.debug(`✅ ${resource}:`, result?.length || 0, "itens");

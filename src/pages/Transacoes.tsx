@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,7 @@ import {
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCategories } from "@/hooks/useCategories";
 import { useRecurrences } from "@/hooks/useRecurrences";
+import { useRecurrenceExpander } from "@/hooks/useRecurrenceExpander";
 
 interface Transaction {
   id: string;
@@ -58,12 +59,14 @@ interface APITransaction {
   data_transacao: string;
   status: "previsto" | "liquidado";
   origem: string;
+  referencia?: string;
   conta_id?: string;
   categoria_id?: string;
-  subcategoria_id?: string;
   conta_nome?: string;
   categoria_nome?: string;
-  subcategoria_nome?: string;
+  categoria_pai_nome?: string;
+  categoria_pai_id?: string;
+  parcela_id?: string;
 }
 
 // Transform API data to UI format
@@ -89,21 +92,18 @@ const transformAPITransaction = (
     console.error('Transação com valor inválido:', apiTransaction);
   }
 
-  const conta = accounts.find(a => a.id === apiTransaction.conta_id);
-  const subcategoria = categories.find(c => c.id === apiTransaction.subcategoria_id);
-  const categoria = categories.find(c => c.id === apiTransaction.categoria_id);
-  const parentCategoria = subcategoria 
-    ? categories.find(c => c.id === subcategoria.parent_id) 
-    : null;
+  // A API agora retorna categoria_nome e categoria_pai_nome diretamente
+  const categoryDisplay = apiTransaction.categoria_pai_nome || apiTransaction.categoria_nome || "Sem categoria";
+  const subcategoryDisplay = apiTransaction.categoria_pai_nome ? apiTransaction.categoria_nome : undefined;
 
   return {
     id: apiTransaction.id,
     description: apiTransaction.descricao,
     amount: apiTransaction.tipo === "debito" ? -valorNumerico : valorNumerico,
     type: typeMap[apiTransaction.tipo],
-    category: parentCategoria?.nome || categoria?.nome || "Sem categoria",
-    subcategory: subcategoria?.nome || "Sem subcategoria",
-    account: conta?.nome || "Sem conta",
+    category: categoryDisplay,
+    subcategory: subcategoryDisplay || "",
+    account: apiTransaction.conta_nome || "Sem conta",
     date: new Date(apiTransaction.data_transacao),
     status: statusMap[apiTransaction.status] || "pending",
     paymentMethod: apiTransaction.origem || "Não informado",
@@ -139,8 +139,12 @@ export default function Transacoes() {
   const { toast } = useToast();
   
   // Buscar contas e categorias para JOINs manuais
-  const { accounts } = useAccounts();
-  const { categories } = useCategories();
+  const { accounts: rawAccounts } = useAccounts();
+  const { categories: rawCategories } = useCategories();
+  
+  // ✅ Memoizar arrays para evitar re-renders desnecessários
+  const accounts = useMemo(() => rawAccounts, [rawAccounts.length]);
+  const categories = useMemo(() => rawCategories, [rawCategories.length]);
   
   // Buscar recorrências
   const { 
@@ -152,6 +156,9 @@ export default function Transacoes() {
     resumeRecurrence, 
     deleteRecurrence 
   } = useRecurrences();
+
+  // Hook para gerar contas do mês
+  const { generateMonthFromRecurrences } = useRecurrenceExpander();
 
   // Use transaction filters hook
   const {
@@ -166,31 +173,18 @@ export default function Transacoes() {
     sortedTransactions
   } = useTransactionFilters(transactions);
 
-  // Load transactions from API
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      loadTransactions();
-    }, 300);
-    
-    return () => clearTimeout(timer);
-  }, [activeTab, filterType, filterStatus, dateRange]);
-
-  const loadTransactions = async () => {
+  // Load transactions from API (useCallback para evitar loop infinito)
+  const loadTransactions = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // ✅ FASE 1: Aplicar filtro de mês atual por padrão
-      const hoje = new Date();
-      const inicioMes = startOfMonth(hoje);
-      const fimMes = endOfMonth(hoje);
-
       const filters: any = {
         limit: 100,
         offset: 0,
-        // ✅ Filtro de data obrigatório (padrão: mês atual)
-        from: dateRange ? format(dateRange, "yyyy-MM-dd") : format(inicioMes, "yyyy-MM-dd"),
-        to: dateRange ? format(dateRange, "yyyy-MM-dd") : format(fimMes, "yyyy-MM-dd"),
+        // ✅ Usar dateRange do filtro (padrão: Este mês)
+        from: format(dateRange.from, "yyyy-MM-dd"),
+        to: format(dateRange.to, "yyyy-MM-dd"),
       };
 
       // Apply tab-specific filters
@@ -240,6 +234,52 @@ export default function Transacoes() {
       toast({
         title: "Erro ao carregar transações",
         description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab, filterStatus, dateRange, accounts, categories, toast]); // ✅ Deps corretas
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadTransactions();
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [loadTransactions]); // ✅ Agora loadTransactions é estável
+
+  const handleGenerateMonth = async () => {
+    try {
+      setLoading(true);
+      const hoje = new Date();
+      const year = hoje.getFullYear();
+      const month = hoje.getMonth() + 1; // getMonth() retorna 0-11
+      
+      // Buscar transações existentes para verificar duplicatas
+      const existingTransactions = await apiClient.getTransactions({
+        limit: 1000,
+        from: format(startOfMonth(hoje), 'yyyy-MM-dd'),
+        to: format(endOfMonth(hoje), 'yyyy-MM-dd')
+      });
+      
+      const created = await generateMonthFromRecurrences(
+        year, 
+        month, 
+        activeRecurrences,
+        existingTransactions
+      );
+      
+      toast({
+        title: "Contas geradas",
+        description: `${created} conta(s) criada(s) para ${format(hoje, "MMMM/yyyy", { locale: ptBR })}`,
+      });
+      
+      handleRefreshAll();
+    } catch (error) {
+      toast({
+        title: "Erro ao gerar contas",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
         variant: "destructive",
       });
     } finally {
@@ -343,13 +383,22 @@ export default function Transacoes() {
         throw new Error("ID da transação não encontrado");
       }
 
+      // Buscar a transação original para obter conta_id e categoria_id
+      const transacaoOriginal = apiTransactions.find(t => t.id === confirmTransactionData.id);
+      if (!transacaoOriginal) {
+        throw new Error("Transação original não encontrada");
+      }
+
       await apiClient.postEvent("transacao.upsert", {
         id: confirmTransactionData.id,
+        tipo: transacaoOriginal.tipo,
+        conta_id: transacaoOriginal.conta_id,
+        categoria_id: transacaoOriginal.categoria_id,
         descricao: data.descricao,
         valor: data.valor,
-        observacoes: data.observacoes,
-        status: "liquidado",
-        data_liquidacao: format(new Date(), "yyyy-MM-dd")
+        data_transacao: format(new Date(), "yyyy-MM-dd"),
+        referencia: data.observacoes || transacaoOriginal.referencia || "",
+        status: "liquidado"
       });
       
       toast({
@@ -357,6 +406,7 @@ export default function Transacoes() {
         description: "A transação foi marcada como concluída.",
       });
       
+      setIsConfirmModalOpen(false);
       handleRefreshAll();
     } catch (error) {
       toast({
@@ -512,6 +562,14 @@ export default function Transacoes() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleGenerateMonth} disabled={loading}>
+            {loading ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Repeat className="w-4 h-4 mr-2" />
+            )}
+            Gerar Contas do Mês
+          </Button>
           <Button variant="outline" size="sm" onClick={handleRefreshAll} disabled={loading}>
             {loading ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -788,8 +846,7 @@ export default function Transacoes() {
           descricao: editingTransaction.description,
           data_transacao: editingTransaction.date,
           conta_id: apiTransactions.find(t => t.id === editingTransaction.id)?.conta_id || "",
-          subcategoria_id: apiTransactions.find(t => t.id === editingTransaction.id)?.subcategoria_id || 
-                          apiTransactions.find(t => t.id === editingTransaction.id)?.categoria_id || "",
+          categoria_id: apiTransactions.find(t => t.id === editingTransaction.id)?.categoria_id || "",
           status: editingTransaction.status === "completed" ? "liquidado" : "previsto",
           observacoes: editingTransaction.notes
         } : undefined}

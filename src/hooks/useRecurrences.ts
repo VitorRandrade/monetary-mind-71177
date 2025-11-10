@@ -5,6 +5,7 @@ export interface Recurrence {
   id: string;
   conta_id: string;
   categoria_id: string;
+  subcategoria_id?: string;
   tipo: "debito" | "credito";
   descricao: string;
   valor: string | number;

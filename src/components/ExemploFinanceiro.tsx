@@ -41,7 +41,7 @@ export default function ExemploFinanceiro() {
   async function criarCredito() {
     await postEvent("transacao.upsert", {
       conta_id: "UUID-CONTA",
-      subcategoria_id: "UUID-SUB",
+      categoria_id: "UUID-CATEGORIA",
       tipo: "credito",
       valor: 120.5,
       data_transacao: "2025-09-09",

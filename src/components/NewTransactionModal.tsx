@@ -32,7 +32,7 @@ interface TransactionForm {
   descricao: string;
   data_transacao: Date;
   conta_id: string;
-  subcategoria_id: string;
+  categoria_id: string;
   origem: string;
   status: "previsto" | "liquidado";
   observacoes?: string;
@@ -65,7 +65,7 @@ export default function NewTransactionModal({ open, onOpenChange, onSuccess, mod
     descricao: "",
     data_transacao: new Date(),
     conta_id: "",
-    subcategoria_id: "",
+    categoria_id: "",
     origem: "manual",
     status: "liquidado",
   });
@@ -79,10 +79,10 @@ export default function NewTransactionModal({ open, onOpenChange, onSuccess, mod
         descricao: initial.descricao || "",
         data_transacao: initial.data_transacao ? new Date(initial.data_transacao) : new Date(),
         conta_id: initial.conta_id || "",
-        subcategoria_id: initial.subcategoria_id || "",
+        categoria_id: initial.categoria_id || "",
         origem: initial.origem || "manual",
         status: initial.status || "liquidado",
-        observacoes: initial.observacoes,
+        observacoes: initial.referencia || "", // Mapear referencia para observacoes
       });
     }
   }, [mode, initial, open]);
@@ -117,7 +117,7 @@ export default function NewTransactionModal({ open, onOpenChange, onSuccess, mod
       descricao: "",
       data_transacao: new Date(),
       conta_id: "",
-      subcategoria_id: "",
+      categoria_id: "",
       origem: "manual",
       status: "liquidado",
     });
@@ -125,18 +125,13 @@ export default function NewTransactionModal({ open, onOpenChange, onSuccess, mod
   };
 
   const handleSubmit = async () => {
-    // Find parent category ID from selected subcategory
-    const selectedSubcategory = subcategoriesForSelect.find(
-      sub => sub.id === form.subcategoria_id
-    );
-
     // Validação Zod
     const validationData = {
       tipo: form.tipo,
       descricao: form.descricao,
       valor: parseFloat(form.valor.replace(",", ".")),
       conta_id: form.conta_id,
-      categoria_id: selectedSubcategory?.parent_id || undefined,
+      categoria_id: form.categoria_id || undefined,
       data_transacao: format(form.data_transacao, "yyyy-MM-dd"),
       origem: form.origem,
       status: form.status,
@@ -160,13 +155,11 @@ export default function NewTransactionModal({ open, onOpenChange, onSuccess, mod
       descricao: form.descricao,
       valor: parseFloat(form.valor.replace(",", ".")),
       conta_id: form.conta_id,
-      categoria_id: selectedSubcategory?.parent_id || undefined,
-      subcategoria_id: form.subcategoria_id || undefined,
+      categoria_id: form.categoria_id || undefined,
       data_transacao: format(form.data_transacao, "yyyy-MM-dd"),
       origem: form.origem,
       status: form.status,
-      observacoes: form.observacoes,
-      conta_destino_id: form.conta_destino_id,
+      referencia: form.observacoes || null, // Mapear observacoes para referencia
     };
 
     try {
@@ -186,8 +179,7 @@ export default function NewTransactionModal({ open, onOpenChange, onSuccess, mod
           descricao: form.descricao,
           valor: parseFloat(form.valor.replace(",", ".")),
           conta_id: form.conta_id,
-          categoria_id: selectedSubcategory?.parent_id || undefined,
-          subcategoria_id: form.subcategoria_id || undefined,
+          categoria_id: form.categoria_id || undefined,
           frequencia: form.frequencia,
           dia_vencimento: form.data_transacao.getDate(),
           data_inicio: format(form.data_transacao, "yyyy-MM-dd"),
@@ -228,8 +220,7 @@ export default function NewTransactionModal({ open, onOpenChange, onSuccess, mod
               descricao: `${form.descricao} (${i + 1}/${form.parcelas})`,
               valor: valorParcela,
               conta_id: form.conta_id,
-              categoria_id: selectedSubcategory?.parent_id || undefined,
-              subcategoria_id: form.subcategoria_id || undefined,
+              categoria_id: form.categoria_id || undefined,
               data_transacao: format(dataParcela, "yyyy-MM-dd"),
               origem: "parcelamento",
               status: "previsto",
@@ -387,7 +378,7 @@ export default function NewTransactionModal({ open, onOpenChange, onSuccess, mod
             ) : (
               <div>
                 <Label htmlFor="categoria">Categoria *</Label>
-                <Select value={form.subcategoria_id} onValueChange={(value) => updateForm({ subcategoria_id: value })}>
+                <Select value={form.categoria_id} onValueChange={(value) => updateForm({ categoria_id: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecionar categoria" />
                   </SelectTrigger>
@@ -500,7 +491,7 @@ export default function NewTransactionModal({ open, onOpenChange, onSuccess, mod
 
               <div>
                 <Label htmlFor="categoria-parcelas">Categoria *</Label>
-                <Select value={form.subcategoria_id} onValueChange={(value) => updateForm({ subcategoria_id: value })}>
+                <Select value={form.categoria_id} onValueChange={(value) => updateForm({ categoria_id: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecionar" />
                   </SelectTrigger>
@@ -642,7 +633,7 @@ export default function NewTransactionModal({ open, onOpenChange, onSuccess, mod
 
               <div>
                 <Label htmlFor="categoria-recorrente">Categoria *</Label>
-                <Select value={form.subcategoria_id} onValueChange={(value) => updateForm({ subcategoria_id: value })}>
+                <Select value={form.categoria_id} onValueChange={(value) => updateForm({ categoria_id: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecionar categoria" />
                   </SelectTrigger>

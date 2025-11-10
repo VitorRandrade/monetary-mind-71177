@@ -22,3 +22,29 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files (IMPORTANTE: não commitar senhas!)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database backups
+*.sql.gz
+backups/
+/var/backups/
+
+# PM2
+.pm2/
+logs/
+
+# Lockfiles (manter apenas bun.lockb)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Temporários
+*.tmp
+*.temp
+.cache/
