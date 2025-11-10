@@ -94,9 +94,9 @@ Imports ES modules precisam da extensão .js
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ES2022",
+    "module": "Node16",
     "lib": ["ES2023"],
-    "moduleResolution": "node16",
+    "moduleResolution": "Node16",
     "outDir": "./dist-server",
     "rootDir": "./server",
     "strict": false,
@@ -106,7 +106,8 @@ Imports ES modules precisam da extensão .js
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "noImplicitAny": false,
-    "strictNullChecks": false
+    "strictNullChecks": false,
+    "allowImportingTsExtensions": false
   },
   "include": ["server/**/*"],
   "exclude": [
