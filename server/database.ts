@@ -1,13 +1,13 @@
 import { Pool } from 'pg';
-import dotenv from 'dotenv';
 
-dotenv.config();
+// NÃO usar dotenv.config() - confiar nas env vars do sistema/container
+// dotenv só é necessário em desenvolvimento local
 
 // Configuração da conexão com PostgreSQL
 export const pool = new Pool({
-  host: process.env.DB_HOST || '72.60.147.138',
-  port: parseInt(process.env.DB_PORT || '5455'),
-  database: process.env.DB_NAME || 'docker',
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  database: process.env.DB_NAME || 'financeiro',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD,
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,

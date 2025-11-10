@@ -1,6 +1,5 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
@@ -20,7 +19,8 @@ import {
   AuthRequest
 } from './auth.js';
 
-dotenv.config();
+// NÃO usar dotenv em produção - variáveis vêm do container
+// dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
