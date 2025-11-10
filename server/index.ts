@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
-import { pool, query } from './database';
+import { pool, query } from './database.js';
 import {
   authenticateToken,
   requirePermission,
@@ -16,7 +16,7 @@ import {
   verifyPassword,
   generateToken,
   AuthRequest
-} from './auth';
+} from './auth.js';
 
 dotenv.config();
 

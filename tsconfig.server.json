@@ -3,7 +3,7 @@
     "target": "ES2022",
     "module": "ES2022",
     "lib": ["ES2023"],
-    "moduleResolution": "node",
+    "moduleResolution": "node16",
     "outDir": "./dist-server",
     "rootDir": "./server",
     "strict": false,
@@ -13,7 +13,8 @@
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "noImplicitAny": false,
-    "strictNullChecks": false
+    "strictNullChecks": false,
+    "allowImportingTsExtensions": false
   },
   "include": ["server/**/*"],
   "exclude": [
