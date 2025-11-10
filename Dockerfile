@@ -3,6 +3,11 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Declarar build args para variáveis Vite
+ARG VITE_API_URL=/api
+ARG VITE_FINANCEIRO_TENANT_ID=obsidian
+ARG VITE_APP_URL=/
+
 # Copiar package files
 COPY package*.json ./
 COPY bun.lockb ./
@@ -13,7 +18,10 @@ RUN npm ci
 # Copiar código fonte
 COPY . .
 
-# Build do frontend
+# Build do frontend com variáveis Vite
+ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_FINANCEIRO_TENANT_ID=${VITE_FINANCEIRO_TENANT_ID}
+ENV VITE_APP_URL=${VITE_APP_URL}
 RUN npm run build
 
 # Compilar servidor TypeScript para JavaScript

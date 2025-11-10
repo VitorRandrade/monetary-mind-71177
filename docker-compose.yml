@@ -5,6 +5,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+        VITE_FINANCEIRO_TENANT_ID: obsidian
+        VITE_APP_URL: /
     ports:
       - "3001:3001"
     environment:
