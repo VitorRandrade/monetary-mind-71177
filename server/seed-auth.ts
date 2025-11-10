@@ -1,5 +1,5 @@
-import { pool, query } from './database';
-import { hashPassword } from './auth';
+import { pool, query } from './database.js';
+import { hashPassword } from './auth.js';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
