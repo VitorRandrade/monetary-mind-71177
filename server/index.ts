@@ -31,7 +31,11 @@ const __dirname = path.dirname(__filename);
 
 // Middlewares
 app.use(cors({
-  origin: ['http://localhost:8080', 'http://localhost:5173'],
+  origin: [
+    'http://localhost:8080',
+    'http://localhost:5173',
+    process.env.FRONTEND_URL || 'http://localhost:8080'
+  ].filter(Boolean),
   credentials: true
 }));
 app.use(express.json());

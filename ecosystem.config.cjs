@@ -3,8 +3,8 @@ module.exports = {
     {
       name: 'monetary-mind',
       script: 'dist-server/index.js',
-      instances: 2,
-      exec_mode: 'cluster',
+      instances: 1,
+      exec_mode: 'fork',
       watch: false,
       max_memory_restart: '500M',
       env: {
