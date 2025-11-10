@@ -7,8 +7,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY bun.lockb ./
 
-# Instalar dependências (com legacy-peer-deps para resolver conflitos)
-RUN npm ci --legacy-peer-deps
+# Instalar dependências
+RUN npm ci
 
 # Copiar código fonte
 COPY . .
@@ -27,8 +27,8 @@ RUN npm install -g pm2
 # Copiar package files
 COPY package*.json ./
 
-# Instalar apenas dependências de produção (com legacy-peer-deps)
-RUN npm ci --only=production --legacy-peer-deps
+# Instalar apenas dependências de produção
+RUN npm ci --only=production
 
 # Copiar build do frontend do stage anterior
 COPY --from=builder /app/dist ./dist
