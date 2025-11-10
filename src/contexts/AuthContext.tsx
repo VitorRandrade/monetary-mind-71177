@@ -2,6 +2,11 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useNavigate } from 'react-router-dom';
 
 // ============================================
+// CONFIGURAÇÃO DA API
+// ============================================
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+
+// ============================================
 // TIPOS
 // ============================================
 export interface User {
@@ -59,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const response = await fetch('http://localhost:3001/api/auth/me', {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -82,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(email: string, password: string) {
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -112,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const token = localStorage.getItem('token');
       if (token) {
-        await fetch('http://localhost:3001/api/auth/logout', {
+        await fetch(`${API_BASE_URL}/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -131,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function register(email: string, password: string, nome: string) {
     try {
-      const response = await fetch('http://localhost:3001/api/auth/register', {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

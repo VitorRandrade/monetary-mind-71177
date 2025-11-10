@@ -34,6 +34,11 @@ import { Plus, Edit, Trash2, Shield, CheckCircle, XCircle, Users } from "lucide-
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+// ============================================
+// CONFIGURAÇÃO DA API
+// ============================================
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+
 interface User {
   id: string;
   email: string;
@@ -78,7 +83,7 @@ export default function Usuarios() {
   async function loadUsers() {
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:3001/api/usuarios", {
+      const response = await fetch("$\{API_BASE_URL\}/usuarios", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -102,7 +107,7 @@ export default function Usuarios() {
   async function loadRoles() {
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:3001/api/roles", {
+      const response = await fetch("$\{API_BASE_URL\}/roles", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -120,7 +125,7 @@ export default function Usuarios() {
   async function handleCreateUser() {
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:3001/api/usuarios", {
+      const response = await fetch("$\{API_BASE_URL\}/usuarios", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -162,7 +167,7 @@ export default function Usuarios() {
       const token = localStorage.getItem("token");
       
       // Atualizar dados do usuário
-      const updateResponse = await fetch(`http://localhost:3001/api/usuarios/${selectedUser.id}`, {
+      const updateResponse = await fetch(`$\{API_BASE_URL\}/usuarios/${selectedUser.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -178,7 +183,7 @@ export default function Usuarios() {
 
       // Atualizar roles
       if (formData.roles.length > 0) {
-        const rolesResponse = await fetch(`http://localhost:3001/api/usuarios/${selectedUser.id}/roles`, {
+        const rolesResponse = await fetch(`$\{API_BASE_URL\}/usuarios/${selectedUser.id}/roles`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -214,7 +219,7 @@ export default function Usuarios() {
 
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`http://localhost:3001/api/usuarios/${userId}`, {
+      const response = await fetch(`$\{API_BASE_URL\}/usuarios/${userId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -487,3 +492,4 @@ export default function Usuarios() {
     </div>
   );
 }
+
