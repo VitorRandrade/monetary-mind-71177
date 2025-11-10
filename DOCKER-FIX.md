@@ -1,37 +1,86 @@
-# 🔧 Correção do Erro de Build Docker
+# 🔧 Correção dos Erros de Build e Runtime Docker
 
-## Problema
-Erro ao fazer build do Docker devido a conflito de dependências entre `date-fns@4.1.0` e `react-day-picker@8.10.1`.
+## Problemas Encontrados
 
-## Solução Aplicada
-Downgrade do `date-fns` de v4.1.0 para v3.6.0 (compatível com react-day-picker).
+### 1. Build Error - Conflito de Dependências
+Erro ao fazer build do Docker devido a conflito entre `date-fns@4.1.0` e `react-day-picker@8.10.1`.
 
-## Arquivos Alterados
+### 2. Runtime Error - PM2 ES Module
+```
+ReferenceError: module is not defined in ES module scope
+```
+O arquivo `ecosystem.config.js` usava sintaxe CommonJS mas o projeto está configurado como ES Module.
 
-### 1. `package.json`
+## Soluções Aplicadas
+
+### Correção 1: Downgrade date-fns
 ```json
 "date-fns": "^3.6.0"  // era "^4.1.0"
 ```
+
+### Correção 2: Renomear ecosystem.config
+- `ecosystem.config.js` → `ecosystem.config.cjs`
+- Atualizado `package.json` e `Dockerfile`
+
+## Arquivos Alterados
+
+1. `package.json` - versão date-fns + script start:prod
+2. `ecosystem.config.js` → `ecosystem.config.cjs` (renomeado)
+3. `Dockerfile` - referência ao arquivo .cjs
 
 ## Como Aplicar a Correção no Servidor
 
 ### Opção 1: Editar diretamente no GitHub (MAIS FÁCIL)
 
+**Passo 1: Editar package.json**
+
 1. Acesse: https://github.com/VitorRandrade/monetary-mind-71177/edit/main/package.json
 
-2. Localize a linha 56 (aproximadamente):
-```json
-"date-fns": "^4.1.0",
-```
+2. Faça 2 alterações:
 
-3. Altere para:
-```json
-"date-fns": "^3.6.0",
-```
+   a) Linha ~56 - Altere:
+   ```json
+   "date-fns": "^4.1.0",
+   ```
+   Para:
+   ```json
+   "date-fns": "^3.6.0",
+   ```
 
-4. Clique em "Commit changes"
+   b) Linha ~16 - Altere:
+   ```json
+   "start:prod": "NODE_ENV=production pm2 start ecosystem.config.js",
+   ```
+   Para:
+   ```json
+   "start:prod": "NODE_ENV=production pm2 start ecosystem.config.cjs",
+   ```
 
-5. No seu painel Easypanel, faça um novo deploy
+3. Clique em "Commit changes"
+
+**Passo 2: Renomear ecosystem.config.js**
+
+1. Acesse: https://github.com/VitorRandrade/monetary-mind-71177/blob/main/ecosystem.config.js
+
+2. Clique nos 3 pontos (...) → "Rename file"
+
+3. Mude de `ecosystem.config.js` para `ecosystem.config.cjs`
+
+4. Commit changes
+
+**Passo 3: Editar Dockerfile**
+
+1. Acesse: https://github.com/VitorRandrade/monetary-mind-71177/edit/main/Dockerfile
+
+2. Encontre 2 ocorrências de `ecosystem.config.js` e mude para `ecosystem.config.cjs`:
+   - Linha ~38: `COPY ecosystem.config.cjs ./`
+   - Linha ~51: `CMD ["pm2-runtime", "start", "ecosystem.config.cjs"]`
+
+3. Commit changes
+
+**Passo 4: Deploy**
+
+No Easypanel, faça um novo deploy. Agora deve funcionar! ✅
 
 ### Opção 2: Via SSH no Servidor
 
